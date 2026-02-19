@@ -1,0 +1,6 @@
+[submodule "practica-01-eth-document-registry/contracts/lib/openzeppelin-contracts"]
+	path = practica-01-eth-document-registry/contracts/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "practica-01-eth-document-registry/contracts/lib/forge-std"]
+	path = practica-01-eth-document-registry/contracts/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
