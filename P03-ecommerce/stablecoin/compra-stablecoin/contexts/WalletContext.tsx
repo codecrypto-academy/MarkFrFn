@@ -1,0 +1,78 @@
+'use client';
+
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { ethers } from 'ethers';
+import { CHAIN_ID } from '@/lib/contracts';
+
+interface WalletState {
+  address: string | null;
+  provider: ethers.BrowserProvider | null;
+  signer: ethers.JsonRpcSigner | null;
+  isConnecting: boolean;
+  error: string | null;
+  connect: () => Promise<void>;
+  disconnect: () => void;
+}
+
+const WalletContext = createContext<WalletState | null>(null);
+
+export function WalletProvider({ children }: { children: ReactNode }) {
+  const [address, setAddress] = useState<string | null>(null);
+  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
+  const [signer, setSigner] = useState<ethers.JsonRpcSigner | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const connect = useCallback(async () => {
+    if (!window.ethereum) {
+      setError('MetaMask no encontrado. Instala MetaMask para continuar.');
+      return;
+    }
+    setIsConnecting(true);
+    setError(null);
+    try {
+      const bp = new ethers.BrowserProvider(window.ethereum);
+      await bp.send('eth_requestAccounts', []);
+      const network = await bp.getNetwork();
+      if (Number(network.chainId) !== CHAIN_ID) {
+        setError(`Red incorrecta. Conecta MetaMask a Anvil Local (chainId ${CHAIN_ID}).`);
+        setIsConnecting(false);
+        return;
+      }
+      const s = await bp.getSigner();
+      setProvider(bp);
+      setSigner(s);
+      setAddress(await s.getAddress());
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Error al conectar');
+    } finally {
+      setIsConnecting(false);
+    }
+  }, []);
+
+  const disconnect = useCallback(() => {
+    setAddress(null);
+    setProvider(null);
+    setSigner(null);
+  }, []);
+
+  // Detectar cambio de cuenta en MetaMask
+  useEffect(() => {
+    if (!window.ethereum) return;
+    const handler = () => disconnect();
+    window.ethereum.on('accountsChanged', handler);
+    return () => window.ethereum.removeListener('accountsChanged', handler);
+  }, [disconnect]);
+
+  return (
+    <WalletContext.Provider value={{ address, provider, signer, isConnecting, error, connect, disconnect }}>
+      {children}
+    </WalletContext.Provider>
+  );
+}
+
+export function useWallet() {
+  const ctx = useContext(WalletContext);
+  if (!ctx) throw new Error('useWallet must be used inside WalletProvider');
+  return ctx;
+}
