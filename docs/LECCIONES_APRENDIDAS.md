@@ -214,6 +214,15 @@ En proyectos con múltiples procesos (nodo local + deploy + frontend) es muy út
 - Extrae datos del deploy (dirección del contrato) y actualiza archivos de configuración
 - Limpia al salir con `trap cleanup SIGINT SIGTERM`
 
+### Scripts `.sh` creados desde Windows siempre tienen CRLF
+Cualquier archivo `.sh` escrito por una herramienta Windows (VSCode, Claude Code, etc.) tiene terminaciones CRLF. WSL y bash nativo los rechazan con errores como `$'\r': command not found` o `syntax error near unexpected token`. Solución inmediata:
+
+```bash
+sed -i 's/\r//' archivo.sh
+```
+
+Hacerlo siempre después de crear un `.sh` en Windows antes de ejecutarlo en WSL.
+
 ### Compatibilidad WSL / Git Bash / nativo
 En entornos Windows hay diferencias entre shells:
 - `lsof` no existe → usar `taskkill.exe /IM proceso.exe /F`
@@ -284,7 +293,62 @@ Forzar la animación al cambiar de tab: `key={activeTab}` en el contenedor hace 
 
 ---
 
-## 10. Checklist para el próximo proyecto dApp
+## 10. Meta-Transacciones ERC-2771 (P02)
+
+### EIP-712: firma de datos estructurados
+La firma de meta-transacciones usa `signer.signTypedData(domain, types, value)` en ethers.js v6. El dominio debe coincidir **exactamente** con el constructor del contrato `EIP712`:
+
+```typescript
+const domain = {
+  name: 'MinimalForwarder',
+  version: '1',
+  chainId: 31337,
+  verifyingContract: FORWARDER_ADDRESS,
+};
+```
+
+Si el nombre, versión o chainId no coinciden, `verify()` en el contrato retorna `false`.
+
+### ERC-2771: no usar `msg.sender` en contratos destino
+En contratos que reciben meta-transacciones, siempre usar `_msgSender()` (de `ERC2771Context`), nunca `msg.sender`. El `msg.sender` es la dirección del relayer, no del usuario que firmó.
+
+### OZ v5: los overrides de ERC2771Context ya no son necesarios
+En OpenZeppelin v5, `ERC2771Context` implementa `_msgSender()`, `_msgData()` y `_contextSuffixLength()` como finales desde la perspectiva del contrato hijo. Si el contrato solo hereda de `ERC2771Context` y `ReentrancyGuard`, **no hay que redefinirlos**.
+
+### OZ v5 requiere Solidity ^0.8.24
+OpenZeppelin v5 (`EIP712.sol`) usa `^0.8.24`. Actualizar `solc_version` en `foundry.toml` y todos los pragmas si se instala OZ v5.
+
+### Relayer server-side: la clave privada nunca llega al cliente
+El endpoint `/api/relay` (Next.js API Route) usa `process.env.RELAYER_PRIVATE_KEY` que solo existe en el servidor. El cliente solo envía la request firmada y la firma EIP-712.
+
+### Serializar bigint antes de hacer fetch
+Los campos `uint256` de ethers.js son `bigint`. `JSON.stringify` no serializa `bigint` nativamente. Convertir a string antes de enviar al relayer:
+
+```typescript
+body: JSON.stringify({
+  request: {
+    value: req.value.toString(),
+    gas:   req.gas.toString(),
+    nonce: req.nonce.toString(),
+    // ...
+  }
+})
+```
+
+### Daemon de ejecución: API Route + polling client-side
+Para ejecutar propuestas aprobadas automáticamente en desarrollo local: API Route `GET /api/daemon` que escanea propuestas y ejecuta las elegibles, invocado cada 30s con `setInterval` en el cliente. En producción usar Vercel Cron.
+
+### Extraer dos direcciones del broadcast de forge
+Cuando un script despliega múltiples contratos, los logs de `console.log` son la forma más fiable de extraer las direcciones:
+
+```bash
+FORWARDER=$(echo "$DEPLOY_OUT" | grep "MinimalForwarder:" | grep -oE '0x[a-fA-F0-9]{40}')
+DAO=$(echo       "$DEPLOY_OUT" | grep "DAOVoting:"        | grep -oE '0x[a-fA-F0-9]{40}')
+```
+
+---
+
+## 11. Checklist para el próximo proyecto dApp
 
 - [ ] Diseñar el contrato antes de codificarlo — identificar structs, mappings, eventos, funciones view
 - [ ] Verificar que no haya campos redundantes en structs

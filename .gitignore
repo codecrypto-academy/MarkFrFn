@@ -1,0 +1,22 @@
+# ── Claude Code (memoria local de la sesión) ────────────────────────────────
+.claude/
+
+# ── Foundry — artefactos de compilación ─────────────────────────────────────
+**/cache/
+**/out/
+
+# ── Foundry — broadcasts de red local (Anvil, chainId 31337) ─────────────────
+**/broadcast/*/31337/
+**/broadcast/**/dry-run/
+
+# ── Node.js / Next.js ────────────────────────────────────────────────────────
+**/node_modules/
+**/.next/
+**/*.tsbuildinfo
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
