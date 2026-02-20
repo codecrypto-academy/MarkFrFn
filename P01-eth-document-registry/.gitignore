@@ -1,0 +1,43 @@
+# ─── Foundry (raiz) ───────────────────────────────────────
+cache/
+out/
+
+# Broadcasts de red local (31337 = Anvil); conservar testnet/mainnet
+broadcast/*/31337/
+broadcast/**/dry-run/
+
+# ─── Contratos ────────────────────────────────────────────
+contracts/cache/
+contracts/out/
+
+# ─── Frontend ─────────────────────────────────────────────
+dapp/node_modules/
+dapp/.next/
+dapp/out/
+dapp/dist/
+dapp/build/
+
+# ─── Logs y temporales ────────────────────────────────────
+*.log
+test_results.log
+
+# ─── Entorno ──────────────────────────────────────────────
+.env
+.env.local.backup
+*.env
+
+# Mantener .env.local del dapp (solo contiene datos publicos de Anvil)
+!dapp/.env.local
+
+# ─── Sistema operativo ────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── Editor ───────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ─── Claude Code ──────────────────────────────────────────
+.claude/
