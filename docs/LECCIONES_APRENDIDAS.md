@@ -348,7 +348,105 @@ DAO=$(echo       "$DEPLOY_OUT" | grep "DAOVoting:"        | grep -oE '0x[a-fA-F0
 
 ---
 
-## 11. Checklist para el próximo proyecto dApp
+## 11. P03 — E-Commerce Blockchain (EuroToken + Stripe + 4 apps)
+
+### Arquitectura multi-contrato con dependencias circulares
+Cuando los contratos se necesitan mutuamente (ProductCatalog ↔ PaymentGateway, ShoppingCart ↔ InvoiceSystem), usar el patrón de "conexión post-deploy":
+
+```solidity
+// Desplegar primero, conectar después
+ProductCatalog productCat = new ProductCatalog(address(companyReg));
+PaymentGateway gateway    = new PaymentGateway(euroToken, address(invoiceSys), address(productCat));
+productCat.setPaymentGateway(address(gateway));   // conectar al final
+```
+
+Cada contrato que acepta direcciones externas en post-deploy necesita un guard de acceso (`onlyOwner`) y solo permite llamarlo una vez.
+
+### Tests de integración multi-contrato: usar MockERC20 local
+Si los tests de `sc-ecommerce` importaran `EuroToken` desde `stablecoin/sc/`, crearían una dependencia entre proyectos Foundry. Solución: definir un `MockEuroToken` local en el archivo de test:
+
+```solidity
+contract MockEuroToken is ERC20 {
+    constructor() ERC20("MockEURO", "MEURT") {}
+    function decimals() public pure override returns (uint8) { return 6; }
+    function mint(address to, uint256 amount) external { _mint(to, amount); }
+}
+```
+
+### forge script en Windows: usar `cd` en lugar de `--root`
+El flag `--root /unix/path` de `forge script` no funciona con binarios `.exe` de forge en Windows bajo Git Bash. El binario espera paths estilo Windows (`D:\...`) pero Git Bash pasa paths Unix (`/d/...`). El error resultante es genérico e ilegible:
+
+```
+Error: contract source info format must be `<path>:<contractname>` or `<contractname>`
+```
+
+**Solución:** Cambiar de directorio antes de invocar forge:
+
+```bash
+# MAL — incompatible con Windows
+forge script script/Deploy.s.sol --root /d/proyecto/stablecoin/sc
+
+# BIEN — funciona en Windows y Linux/Mac
+(cd /d/proyecto/stablecoin/sc && forge script script/Deploy.s.sol ...)
+```
+
+### pkill no mata procesos `.exe` nativos en Windows
+`pkill -f "anvil"` envía SIGTERM al proceso. Los `.exe` Windows (anvil.exe, node.exe) no siempre responden a SIGTERM desde Git Bash. El proceso sigue corriendo invisiblemente y los deploys acumulan estado en el mismo Anvil, desplazando las addresses de los contratos.
+
+**Síntoma:** el `.env.local` dice `EuroToken: 0x5FbDB...` pero en esa dirección hay `CompanyRegistry` de una ejecución anterior.
+
+**Solución:** usar `taskkill` antes de `pkill`:
+
+```bash
+if command -v taskkill &>/dev/null; then
+  taskkill //F //IM anvil.exe //T 2>/dev/null || true
+  taskkill //F //IM node.exe  //T 2>/dev/null || true
+fi
+pkill -f "anvil" 2>/dev/null || true
+```
+
+Nota: en Git Bash, `//F` se pasa al ejecutable Windows como `/F`.
+
+### Limpiar caches de broadcast antes de cada restart
+`forge script --broadcast` guarda el resultado en `broadcast/Deploy.s.sol/31337/run-latest.json`. Si Anvil se reinicia (nonce vuelve a 0) pero el cache persiste, forge intenta reconciliar estado viejo con el nuevo nodo y puede fallar o desplegar en addresses incorrectas.
+
+**Solución:** borrar antes de cada deploy:
+
+```bash
+rm -rf "$SCRIPT_DIR/stablecoin/sc/broadcast"
+rm -rf "$SCRIPT_DIR/stablecoin/sc/cache"
+rm -rf "$SCRIPT_DIR/sc-ecommerce/broadcast"
+rm -rf "$SCRIPT_DIR/sc-ecommerce/cache"
+```
+
+### `set -euo pipefail` + captura de output oculta errores de forge
+Con `set -e`, si `forge script` falla dentro de `$()`, bash sale inmediatamente sin mostrar el error capturado:
+
+```bash
+# MAL — bash sale silenciosamente si forge falla
+EURO_OUTPUT=$(forge script ... 2>&1)
+```
+
+**Solución:** exponer el output capturado al fallar:
+
+```bash
+EURO_OUTPUT=$(forge script ... 2>&1) \
+  || { echo "$EURO_OUTPUT"; err "Forge falló al desplegar."; }
+```
+
+### Mintear EURT directamente para pruebas (sin Stripe)
+Para probar el flujo de e-commerce sin claves Stripe, mintear directamente con `cast send`:
+
+```bash
+cast send "$EURO_TOKEN" "mint(address,uint256)" "$CUSTOMER" 5000000000 \
+  --rpc-url "http://localhost:8545" \
+  --private-key "$DEPLOYER_KEY"
+# 5000000000 = 5000 EURT (6 decimals)
+```
+
+---
+
+## 12. Checklist para el próximo proyecto dApp
 
 - [ ] Diseñar el contrato antes de codificarlo — identificar structs, mappings, eventos, funciones view
 - [ ] Verificar que no haya campos redundantes en structs
