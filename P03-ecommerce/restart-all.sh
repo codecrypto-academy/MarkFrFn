@@ -34,9 +34,14 @@ fi
 
 # ─── 1. Matar procesos anteriores ────────────────────────────────────────────
 info "Deteniendo procesos anteriores…"
-pkill -f "anvil" 2>/dev/null || true
+# Windows: taskkill mata el exe; Linux/Mac: pkill
+if command -v taskkill &>/dev/null; then
+  taskkill //F //IM anvil.exe //T 2>/dev/null || true
+  taskkill //F //IM node.exe  //T 2>/dev/null || true
+fi
+pkill -f "anvil"    2>/dev/null || true
 pkill -f "next dev" 2>/dev/null || true
-sleep 1
+sleep 2
 
 # ─── 2. Iniciar Anvil ────────────────────────────────────────────────────────
 info "Iniciando Anvil (chainId $CHAIN_ID)…"
@@ -55,28 +60,32 @@ for i in $(seq 1 30); do
 done
 log "Anvil corriendo en $RPC_URL (PID: $ANVIL_PID)"
 
+# ─── Limpiar caches de broadcast (evita conflictos con Anvil fresco) ──────────
+info "Limpiando caches de broadcast…"
+rm -rf "$SCRIPT_DIR/stablecoin/sc/broadcast"
+rm -rf "$SCRIPT_DIR/stablecoin/sc/cache"
+rm -rf "$SCRIPT_DIR/sc-ecommerce/broadcast"
+rm -rf "$SCRIPT_DIR/sc-ecommerce/cache"
+
 # ─── 3. Deploy EuroToken ─────────────────────────────────────────────────────
 info "Desplegando EuroToken…"
-EURO_OUTPUT=$("$FORGE" script script/Deploy.s.sol \
+EURO_OUTPUT=$(cd "$SCRIPT_DIR/stablecoin/sc" && "$FORGE" script script/Deploy.s.sol \
   --rpc-url "$RPC_URL" \
   --broadcast \
   --private-key "$DEPLOYER_KEY" \
-  2>&1 \
-  --root "$SCRIPT_DIR/stablecoin/sc")
+  2>&1) || { echo "$EURO_OUTPUT"; err "Forge falló al desplegar EuroToken."; }
 
 EURO_TOKEN_ADDRESS=$(echo "$EURO_OUTPUT" | grep "EuroToken:" | awk '{print $2}')
-[ -z "$EURO_TOKEN_ADDRESS" ] && err "No se pudo extraer la dirección de EuroToken."
+[ -z "$EURO_TOKEN_ADDRESS" ] && { echo "$EURO_OUTPUT"; err "No se pudo extraer la dirección de EuroToken."; }
 log "EuroToken: $EURO_TOKEN_ADDRESS"
 
 # ─── 4. Deploy E-Commerce Contracts ──────────────────────────────────────────
 info "Desplegando contratos e-commerce…"
-ECOM_OUTPUT=$("$FORGE" script script/Deploy.s.sol \
+ECOM_OUTPUT=$(cd "$SCRIPT_DIR/sc-ecommerce" && EURO_TOKEN_ADDRESS="$EURO_TOKEN_ADDRESS" "$FORGE" script script/Deploy.s.sol \
   --rpc-url "$RPC_URL" \
   --broadcast \
   --private-key "$DEPLOYER_KEY" \
-  2>&1 \
-  --root "$SCRIPT_DIR/sc-ecommerce" \
-  --env-file <(echo "EURO_TOKEN_ADDRESS=$EURO_TOKEN_ADDRESS"))
+  2>&1) || { echo "$ECOM_OUTPUT"; err "Forge falló al desplegar e-commerce."; }
 
 extract() { echo "$ECOM_OUTPUT" | grep "$1:" | awk '{print $2}'; }
 
@@ -87,7 +96,7 @@ SHOPPING_CART=$(extract "ShoppingCart")
 INVOICE_SYS=$(extract "InvoiceSystem")
 PAYMENT_GW=$(extract "PaymentGateway")
 
-[ -z "$ECOMMERCE_MAIN" ] && err "No se pudo extraer la dirección de EcommerceMain."
+[ -z "$ECOMMERCE_MAIN" ] && { echo "$ECOM_OUTPUT"; err "No se pudo extraer la dirección de EcommerceMain."; }
 log "EcommerceMain:   $ECOMMERCE_MAIN"
 log "CompanyRegistry: $COMPANY_REG"
 log "ProductCatalog:  $PRODUCT_CAT"
