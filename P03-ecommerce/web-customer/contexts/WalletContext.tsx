@@ -41,12 +41,30 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const disconnect = useCallback(() => { setAddress(null); setSigner(null); }, []);
 
+  // Auto-conectar silenciosamente al montar si MetaMask ya autorizó el sitio
   useEffect(() => {
     if (!window.ethereum) return;
-    const h = () => disconnect();
+    (async () => {
+      try {
+        const accounts: string[] = await window.ethereum.request({ method: 'eth_accounts' });
+        if (accounts.length === 0) return;
+        const bp = new ethers.BrowserProvider(window.ethereum);
+        const network = await bp.getNetwork();
+        if (Number(network.chainId) !== CHAIN_ID) return;
+        const s = await bp.getSigner();
+        setSigner(s);
+        setAddress(await s.getAddress());
+      } catch { /* silently ignore */ }
+    })();
+  }, []);
+
+  // Reaccionar a cambios de cuenta en MetaMask
+  useEffect(() => {
+    if (!window.ethereum) return;
+    const h = (accounts: string[]) => { if (accounts.length === 0) disconnect(); else connect(); };
     window.ethereum.on('accountsChanged', h);
     return () => window.ethereum.removeListener('accountsChanged', h);
-  }, [disconnect]);
+  }, [disconnect, connect]);
 
   return (
     <WalletContext.Provider value={{ address, signer, isConnecting, error, connect, disconnect }}>

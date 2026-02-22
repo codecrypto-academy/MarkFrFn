@@ -37,6 +37,22 @@ function PaymentPage() {
   const [message, setMessage] = useState('');
   const [txHash, setTxHash] = useState('');
 
+  // Auto-conectar silenciosamente al montar si MetaMask ya autorizó el sitio
+  useEffect(() => {
+    if (!window.ethereum) return;
+    (async () => {
+      try {
+        const accounts: string[] = await window.ethereum.request({ method: 'eth_accounts' });
+        if (accounts.length === 0) return;
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const network = await provider.getNetwork();
+        if (Number(network.chainId) !== CHAIN_ID) return;
+        const signer = await provider.getSigner();
+        setAddress(await signer.getAddress());
+      } catch { /* silently ignore */ }
+    })();
+  }, []);
+
   // Cargar balance cuando hay wallet conectada
   useEffect(() => {
     if (!address) return;
