@@ -23,6 +23,26 @@ info() { echo -e "${B}[..] $1${NC}"; }
 warn() { echo -e "${Y}[!!] $1${NC}"; }
 err()  { echo -e "${R}[ER] $1${NC}"; exit 1; }
 
+# ─── PIDs de procesos hijos ───────────────────────────────────────────────────
+CHILD_PIDS=()
+
+# ─── Cleanup: matar todo al salir (Ctrl+C o fin del script) ──────────────────
+cleanup() {
+  echo ""
+  warn "Deteniendo todos los servicios…"
+  for pid in "${CHILD_PIDS[@]:-}"; do
+    kill "$pid" 2>/dev/null || true
+  done
+  if command -v taskkill &>/dev/null; then
+    taskkill //F //IM node.exe  //T 2>/dev/null || true
+    taskkill //F //IM anvil.exe //T 2>/dev/null || true
+  fi
+  pkill -f "next dev" 2>/dev/null || true
+  pkill -f "anvil"    2>/dev/null || true
+  log "Servicios detenidos."
+}
+trap cleanup EXIT INT TERM
+
 # ─── Detectar npm ─────────────────────────────────────────────────────────────
 if command -v npm &>/dev/null; then
   NPM_CMD="npm"
@@ -47,6 +67,7 @@ sleep 2
 info "Iniciando Anvil (chainId $CHAIN_ID)…"
 "$ANVIL" --port 8545 --silent > /tmp/anvil-p03.log 2>&1 &
 ANVIL_PID=$!
+CHILD_PIDS+=($ANVIL_PID)
 
 # Esperar a que Anvil esté listo
 for i in $(seq 1 30); do
@@ -105,6 +126,21 @@ log "InvoiceSystem:   $INVOICE_SYS"
 log "PaymentGateway:  $PAYMENT_GW"
 
 # ─── 5. Actualizar .env.local en cada app ────────────────────────────────────
+
+# Preservar claves Stripe del .env.local anterior (no sobreescribir con placeholders)
+STRIPE_ENV="$SCRIPT_DIR/stablecoin/compra-stablecoin/.env.local"
+STRIPE_PK="pk_test_PLACEHOLDER"
+STRIPE_SK="sk_test_PLACEHOLDER"
+STRIPE_WH="whsec_PLACEHOLDER"
+if [ -f "$STRIPE_ENV" ]; then
+  _pk=$(grep "^NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=" "$STRIPE_ENV" 2>/dev/null | cut -d= -f2- || true)
+  _sk=$(grep "^STRIPE_SECRET_KEY=" "$STRIPE_ENV" 2>/dev/null | cut -d= -f2- || true)
+  _wh=$(grep "^STRIPE_WEBHOOK_SECRET=" "$STRIPE_ENV" 2>/dev/null | cut -d= -f2- || true)
+  [ -n "$_pk" ] && STRIPE_PK="$_pk"
+  [ -n "$_sk" ] && STRIPE_SK="$_sk"
+  [ -n "$_wh" ] && STRIPE_WH="$_wh"
+fi
+
 write_env() {
   local dir="$1"
   local content="$2"
@@ -118,9 +154,9 @@ write_env "$SCRIPT_DIR/stablecoin/compra-stablecoin" \
 NEXT_PUBLIC_CHAIN_ID=$CHAIN_ID
 NEXT_PUBLIC_RPC_URL=$PUBLIC_RPC
 MINTER_PRIVATE_KEY=$DEPLOYER_KEY
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=\${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-pk_test_PLACEHOLDER}
-STRIPE_SECRET_KEY=\${STRIPE_SECRET_KEY:-sk_test_PLACEHOLDER}
-STRIPE_WEBHOOK_SECRET=\${STRIPE_WEBHOOK_SECRET:-whsec_PLACEHOLDER}"
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$STRIPE_PK
+STRIPE_SECRET_KEY=$STRIPE_SK
+STRIPE_WEBHOOK_SECRET=$STRIPE_WH"
 
 write_env "$SCRIPT_DIR/stablecoin/pasarela-de-pago" \
 "NEXT_PUBLIC_EUROTOKEN_ADDRESS=$EURO_TOKEN_ADDRESS
@@ -148,6 +184,7 @@ start_app() {
   (cd "$dir" && "$NPM_CMD" install --silent 2>/dev/null)
   info "Arrancando $name en :$port…"
   (cd "$dir" && "$NPM_CMD" run dev > /tmp/${name}.log 2>&1) &
+  CHILD_PIDS+=($!)
   sleep 2
   log "$name → http://localhost:$port"
 }
