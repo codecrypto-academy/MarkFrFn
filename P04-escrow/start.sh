@@ -172,7 +172,7 @@ ok ".env.local actualizado en web/"
 # ─── [5/5] Iniciar Next.js ────────────────────────────────────────────────────
 info "[5/5] Iniciando Next.js en http://localhost:3000…"
 
-if [ ! -d "$WEB_DIR/node_modules" ]; then
+if [ ! -d "$WEB_DIR/node_modules/next" ]; then
   info "  Instalando dependencias npm…"
   (cd "$WEB_DIR" && "$NPM_CMD" install 2>&1) || error "npm install falló"
 fi
