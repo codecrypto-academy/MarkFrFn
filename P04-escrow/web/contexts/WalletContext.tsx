@@ -59,12 +59,27 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Reaccionar a cambios de cuenta en MetaMask
+  // NO llamar connect() (usa eth_requestAccounts que puede fallar desde un evento automático)
+  // En su lugar reconectar directamente con la nueva cuenta activa
   useEffect(() => {
     if (!window.ethereum) return;
-    const h = (accounts: string[]) => { if (accounts.length === 0) disconnect(); else connect(); };
+    const h = async (accounts: string[]) => {
+      if (accounts.length === 0) {
+        disconnect();
+      } else {
+        try {
+          const bp = new ethers.BrowserProvider(window.ethereum);
+          const s = await bp.getSigner();
+          setSigner(s);
+          setAddress(await s.getAddress());
+        } catch {
+          disconnect();
+        }
+      }
+    };
     window.ethereum.on('accountsChanged', h);
     return () => window.ethereum.removeListener('accountsChanged', h);
-  }, [disconnect, connect]);
+  }, [disconnect]);
 
   return (
     <WalletContext.Provider value={{ address, signer, isConnecting, error, connect, disconnect }}>
