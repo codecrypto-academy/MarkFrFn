@@ -63,7 +63,12 @@ CodeCrypto-MarkFrFn/          ← raíz del monorepo (único .git aquí)
 - Un único `.git` en la raíz — cada práctica es una carpeta, no un subrepositorio.
 - Los proyectos se ejecutan de forma independiente desde su propia carpeta.
 - Git se gestiona siempre desde la raíz del monorepo.
-- Cada práctica tiene su propia rama: `practica-0#-nombre`.
+- **Estrategia de ramas acumulativas**: cada nueva rama se crea desde la rama de la práctica anterior (NO desde `main`), para que acumule todo el contenido del monorepo:
+  ```bash
+  git checkout practica-03-ecommerce
+  git checkout -b practica-04-escrow
+  ```
+- Así `practica-04-escrow` ya contiene P01 + P02 + P03 + P04 sin necesidad de merges posteriores.
 
 ### Foundry (configuración común P02-P04)
 ```toml
