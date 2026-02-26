@@ -58,6 +58,15 @@ export default function CreateOperation({ onCreated }: Props) {
 
     setMessage('');
     try {
+      // 0. Verificar saldo antes de continuar
+      const tokenContractRead = getERC20Contract(tokenA, getReadProvider());
+      const balance: bigint = await tokenContractRead.balanceOf(address);
+      if (balance < amtA) {
+        const have = ethers.formatUnits(balance, 18);
+        const symA = tokens.find((t) => t.address === tokenA)?.symbol ?? 'tokens';
+        throw new Error(`Saldo insuficiente: tienes ${parseFloat(have).toFixed(2)} ${symA}.`);
+      }
+
       // 1. Approve
       setStatus('approving');
       setMessage('Aprobando TokenA… confirma en MetaMask.');
