@@ -1,0 +1,6 @@
+[submodule "P04-escrow/sc/lib/openzeppelin-contracts"]
+	path = P04-escrow/sc/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "P04-escrow/sc/lib/forge-std"]
+	path = P04-escrow/sc/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
