@@ -53,25 +53,19 @@ CodeCrypto-MarkFrFn/          ← raíz del monorepo (único .git aquí)
 - Solo `README.md` en la raíz de cada práctica
 - Todos los demás `.md` van en `docs/` dentro de cada práctica
 - Usar `git mv` para mover archivos y preservar historial
+- Al mover, actualizar los enlaces en `README.md` de la práctica
 
 ---
 
 ## Decisiones técnicas tomadas
 
 ### Git / Monorepo
-- Un único `.git` en la raíz — cada práctica es una carpeta, no un subrepositorio
-- Cada práctica tiene su propia rama: `practica-0#-nombre`
-- Git se gestiona siempre desde la raíz del monorepo
+- Un único `.git` en la raíz — cada práctica es una carpeta, no un subrepositorio.
+- Los proyectos se ejecutan de forma independiente desde su propia carpeta.
+- Git se gestiona siempre desde la raíz del monorepo.
+- Cada práctica tiene su propia rama: `practica-0#-nombre`.
 
-### Stack común del curso
-- **Solidity 0.8.24** + **Foundry** (forge, anvil) + **OpenZeppelin v5**
-- **Next.js 15** + **TypeScript** + **ethers.js v6** para frontends
-- **Tailwind CSS v4** para estilos
-- **MetaMask** como wallet · **Anvil** como red local (chainId 31337, puerto 8545)
-- Patrón `contexts/WalletContext.tsx` para conexión MetaMask (auto-reconnect con `eth_accounts`)
-- Cada práctica tiene `start.sh` que orquesta Anvil + deploy + Next.js
-
-### Foundry (patrón común)
+### Foundry (configuración común P02-P04)
 ```toml
 [profile.default]
 solc_version = "0.8.24"
@@ -83,16 +77,40 @@ remappings = [
 ]
 ```
 
+### Foundry (P01 — estructura especial)
+- El `foundry.toml` raíz de P01 apunta rutas relativas a la carpeta `contracts/`:
+  ```toml
+  src = "contracts/src"
+  out = "out"
+  libs = ["contracts/lib"]
+  test = "contracts/test"
+  script = "contracts/script"
+  remappings = ["openzeppelin-contracts/=contracts/lib/openzeppelin-contracts/"]
+  ```
+- OpenZeppelin instalado como submódulo en `contracts/lib/openzeppelin-contracts/`.
+
 ---
 
 ## P01 — ETH Document Registry
 
 | Aspecto | Detalle |
 |---------|---------|
-| Objetivo | dApp para almacenar y verificar autenticidad de documentos mediante firmas ECDSA |
+| Objetivo | dApp para almacenar y verificar autenticidad de documentos en Ethereum mediante firmas ECDSA |
 | Smart Contract | `DocumentRegistry.sol` — Solidity 0.8.20, OpenZeppelin ECDSA |
 | Frontend | Next.js 14, TypeScript, ethers.js v6, Tailwind CSS |
-| Tests | 11/11 pasando |
+| Red local | Anvil (Foundry) en `http://localhost:8545`, chain ID 31337 |
+| Tests | 11/11 pasando — suite completa en `contracts/test/DocumentRegistry.t.sol` |
+
+### Optimizaciones del contrato
+- Existencia verificada via `signer != address(0)` — sin `bool exists` redundante.
+- Modifiers `documentNotExists` / `documentExists` para guards reutilizables.
+- Optimizer habilitado (`optimizer_runs = 200`). Ahorro estimado ~39% en gas.
+
+### Arrancar P01
+```bash
+cd P01-eth-document-registry
+bash start.sh   # Anvil + deploy + Next.js en un solo comando
+```
 
 ---
 
@@ -101,8 +119,14 @@ remappings = [
 | Aspecto | Detalle |
 |---------|---------|
 | Objetivo | DAO con votación y meta-transacciones gasless (ERC-2771) |
-| Contratos | `MinimalForwarder.sol` (EIP-712) + `DAOVoting.sol` (ERC2771Context + ReentrancyGuard) |
+| Contratos | `MinimalForwarder.sol` (EIP-712, nonces) + `DAOVoting.sol` (ERC2771Context + ReentrancyGuard) |
 | Tests | 27/27 pasando |
+
+### Arrancar P02
+```bash
+cd P02-dao
+bash start.sh
+```
 
 ---
 
@@ -114,6 +138,13 @@ remappings = [
 | Contratos | EuroToken + CompanyRegistry + ProductCatalog + ShoppingCart + InvoiceSystem + PaymentGateway + EcommerceMain |
 | Apps | :6001 compra tokens · :6002 pasarela pago · :6003 web-admin · :6004 web-customer |
 | Script | `restart-all.sh` — orquesta Anvil + 2 deploys + 4 apps + Stripe CLI |
+
+### Arrancar P03
+```bash
+cd P03-ecommerce
+bash restart-all.sh
+# Stripe (terminal separado): stripe.exe listen --forward-to localhost:6001/api/webhooks
+```
 
 ---
 
@@ -127,14 +158,36 @@ remappings = [
 | Tests | 13/13 pasando |
 | Script | `start.sh` — Anvil + deploy + Next.js |
 
+### Arrancar P04
+```bash
+cd P04-escrow
+bash start.sh
+```
+
+---
+
+## Stack común del curso
+
+- **Solidity** + **Foundry** (forge, anvil) + **OpenZeppelin v5** (`^0.8.24`)
+- **Next.js 15** + **TypeScript** + **ethers.js v6** para frontends
+- **Tailwind CSS v4** para estilos
+- **MetaMask** como wallet · **Anvil** como red local (chainId 31337, puerto 8545)
+- Patrón `contexts/WalletContext.tsx` para conexión MetaMask (auto-reconnect con `eth_accounts`)
+
 ---
 
 ## Preferencias de trabajo
 
-- Nombres de carpetas cortos: `P##-descripcion`
-- Cada práctica tiene su propio `README.md` y `start.sh`
-- Todos los MDs adicionales van en `docs/` dentro de cada práctica
-- Documentación transversal en `docs/LECCIONES_APRENDIDAS.md` en la raíz
+- Nombres de carpetas cortos: `P##-descripcion` en lugar de `practica-##-descripcion`.
+- Cada práctica tiene su propio `README.md` y `start.sh`.
+- Todos los MDs adicionales van en `docs/` dentro de cada práctica.
+- Documentación transversal en `docs/LECCIONES_APRENDIDAS.md` en la raíz.
+
+---
+
+## Documentación transversal
+
+- [docs/LECCIONES_APRENDIDAS.md](./docs/LECCIONES_APRENDIDAS.md) — patrones y antipatrones acumulados de todos los proyectos. **Leer antes de iniciar un nuevo proyecto.**
 
 ---
 
