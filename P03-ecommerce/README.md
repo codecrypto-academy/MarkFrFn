@@ -118,6 +118,6 @@ CVC:      cualquier 3 dígitos
 
 ## Documentación
 
-- [1-PROYECTO_ESTUDIANTE.md](1-PROYECTO_ESTUDIANTE.md) — Especificación completa del proyecto
-- [2-ARCHITECTURE.md](2-ARCHITECTURE.md) — Diagramas de arquitectura
-- [3-DEPLOYED_ADDRESSES.md](3-DEPLOYED_ADDRESSES.md) — Addresses de referencia (deploy anterior)
+- [1-PROYECTO_ESTUDIANTE.md](docs/1-PROYECTO_ESTUDIANTE.md) — Especificación completa del proyecto
+- [2-ARCHITECTURE.md](docs/2-ARCHITECTURE.md) — Diagramas de arquitectura
+- [3-DEPLOYED_ADDRESSES.md](docs/3-DEPLOYED_ADDRESSES.md) — Addresses de referencia (deploy anterior)
