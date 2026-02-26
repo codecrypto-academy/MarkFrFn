@@ -177,7 +177,8 @@ if [ ! -d "$WEB_DIR/node_modules/next" ]; then
   (cd "$WEB_DIR" && "$NPM_CMD" install 2>&1) || error "npm install falló"
 fi
 
-(cd "$WEB_DIR" && "$NPM_CMD" run dev 2>&1) &
+# En Windows los shims de .bin no siempre se crean → llamar next directamente con node
+(cd "$WEB_DIR" && "$NODE_CMD" node_modules/next/dist/bin/next dev --port 3000 2>&1) &
 NEXT_PID=$!
 CHILD_PIDS+=("$NEXT_PID")
 sleep 4
