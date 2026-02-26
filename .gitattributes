@@ -1,0 +1,26 @@
+# Forzar LF en todos los archivos de texto para compatibilidad WSL/Linux
+* text=auto eol=lf
+
+# Scripts de shell: siempre LF
+*.sh text eol=lf
+
+# Contratos Solidity: LF
+*.sol text eol=lf
+
+# Archivos de texto estándar: LF
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.css text eol=lf
+*.env* text eol=lf
+
+# Binarios: sin conversión
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
