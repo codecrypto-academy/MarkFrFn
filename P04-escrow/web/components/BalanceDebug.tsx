@@ -71,7 +71,12 @@ export default function BalanceDebug() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchBalances(); }, []);
+  // Carga inicial + auto-refresh cada 6 s (ligeramente desfasado de OperationsList)
+  useEffect(() => {
+    fetchBalances();
+    const interval = setInterval(fetchBalances, 6000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-2xl p-5 space-y-4">
