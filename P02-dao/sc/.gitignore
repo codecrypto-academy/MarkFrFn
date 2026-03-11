@@ -1,0 +1,10 @@
+# Foundry — dependencias (instalar con: forge install)
+lib/
+
+# Foundry — artefactos de compilación
+cache/
+out/
+
+# Broadcasts de red local (Anvil)
+broadcast/*/31337/
+broadcast/**/dry-run/
